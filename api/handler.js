@@ -1,8 +1,12 @@
 'use strict'
 
-const {randomUUID} = require('crypto')
+const {MongoClient, ObjectId} = require("mongodb");
 
-const previousResults = new Map()
+async function connectToDatabase() {
+    const client = new MongoClient(process.env.DB_CONNECTION_STRING);
+    const connection = await client.connect();
+    return connection.db(process.env.MONGO_DB_NAME);
+}
 
 function extractBody(event) {
     if (!event?.body) {
@@ -18,36 +22,36 @@ module.exports.sendResponse = async (event) => {
     const {name, answers} = extractBody(event);
     const correctQuestions = [3, 1, 0, 2]
 
-    const correctAnswers = answers.reduce((acc, answer, index) => {
+    const totalCorrectAnswers = answers.reduce((acc, answer, index) => {
         if (answer === correctQuestions[index]) {
             acc++
         }
         return acc
     }, 0)
 
-
     const result = {
         name,
-        correctAnswers,
+        answers,
+        correctAnswers: totalCorrectAnswers,
         totalAnswers: answers.length
     }
 
-    const resultId = randomUUID()
-    previousResults.set(resultId, {response: {name, answers}, result})
-    console.log(previousResults)
+    const db = await connectToDatabase();
+    const collection = await db.collection('results');
+    const { insertedId } = await collection.insertOne(result);
 
     return {
         statusCode: 201,
         body: JSON.stringify({
-            resultId,
+            resultId: insertedId,
             __hypermedia: {
                 href: `/results.html`,
-                query: {id: resultId}
+                query: { id: insertedId }
             }
         }),
         headers: {
             'Content-Type': 'application/json'
-        }
+        },
     }
 };
 
@@ -62,7 +66,13 @@ function notFound() {
 }
 
 module.exports.getResult = async (event) => {
-    const result = previousResults.get(event.pathParameters.id)
+    const db = await connectToDatabase();
+    const collection = await db.collection('results');
+
+    const result = await collection.findOne({
+        _id: new ObjectId(event.pathParameters.id)
+    });
+
     if (!result) return notFound()
 
     return {
