@@ -33,7 +33,7 @@ module.exports.sendResponse = async (event) => {
     }
 
     const resultId = randomUUID()
-    previousResults.set(resultId, {response: req.body, result})
+    previousResults.set(resultId, {response: {name, answers}, result})
     console.log(previousResults)
 
     return {
@@ -63,7 +63,7 @@ function notFound() {
 
 module.exports.getResult = async (event) => {
     const result = previousResults.get(event.pathParameters.id)
-    if (!result) notFound()
+    if (!result) return notFound()
 
     return {
         statusCode: 200,
