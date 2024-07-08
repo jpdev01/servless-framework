@@ -1,5 +1,12 @@
 'use strict'
 
+/* creating user:
+db.getCollection('users').insertOne({
+    "name": "John",
+    "password": "931a3698ece6179cf8681775f0c5f669e620603e5059bc5a361822fbe4d741abc9e4035ad60b385ebb3cd776cbe6585a89d185accaf35406ce3668a7e8e7e3ec"
+});
+password 123456
+*/
 const {MongoClient, ObjectId} = require("mongodb");
 const { pbkdf2Sync } = require('crypto');
 
@@ -38,10 +45,8 @@ async function basicAuth(event) {
         }
     }
 
-    const [username, password] = Buffer.from(
-        credentials,
-        'base64'
-    ).toString().split(':'); // transforma do base64 e separando por :
+    const [username, password] = Buffer.from(credentials, 'base64').toString().split(':');
+
 
     const hashedPassword = pbkdf2Sync(password, process.env.SALT, 100000, 64, 'sha512')
         .toString('hex');
