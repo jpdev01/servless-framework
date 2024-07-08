@@ -1,11 +1,66 @@
 'use strict'
 
 const {MongoClient, ObjectId} = require("mongodb");
+const { pbkdf2Sync } = require('crypto');
 
 async function connectToDatabase() {
     const client = new MongoClient(process.env.DB_CONNECTION_STRING);
     const connection = await client.connect();
     return connection.db(process.env.MONGO_DB_NAME);
+}
+
+async function basicAuth(event) {
+    const {authorization} = event.headers;
+    if (!authorization) {
+        return {
+            statusCode: 401,
+            body: JSON.stringify({error: 'Missing Authorization header'}),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }
+    }
+
+    const [type, credentials] = authorization.split(' ');
+    if (type !== 'Basic') {
+        return {
+            statusCode: 401,
+            body: JSON.stringify({error: 'Invalid Authorization type'}),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }
+    }
+
+    const [username, password] = Buffer.from(
+        credentials,
+        'base64'
+    ).toString().split(':'); // transforma do base64 e separando por :
+
+    const hashedPassword = pbkdf2Sync(password, process.env.SALT, 100000, 64, 'sha512')
+        .toString('hex');
+
+    const db = await connectToDatabase();
+    const collection = await db.collection('users');
+    const user = await collection.findOne ({
+       name: username,
+         password: hashedPassword
+    });
+
+    if (!user) {
+        return {
+            statusCode: 401,
+            body: JSON.stringify({error: 'Invalid credentials'}),
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }
+    }
+
+    return {
+        id: user._id,
+        name: user.name
+    }
 }
 
 function extractBody(event) {
@@ -18,7 +73,11 @@ function extractBody(event) {
 
     return JSON.parse(event.body)
 }
+
 module.exports.sendResponse = async (event) => {
+    const authResult = await basicAuth(event);
+    if (authResult.statusCode === 401) return authResult;
+
     const {name, answers} = extractBody(event);
     const correctQuestions = [3, 1, 0, 2]
 

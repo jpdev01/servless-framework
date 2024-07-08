@@ -6,6 +6,7 @@ params: #environment variables
     dbName: servless
   dev:
     connectionString: mongodb://localhost:27017/${self:params.default.dbName}
+    salt: PJH1KgDkTYhAhpFW2D8YVIS2hs8vg3sV
 
 provider:
   name: aws
@@ -13,6 +14,7 @@ provider:
   environment:
     DB_CONNECTION_STRING: ${param:connectionString}
     MONGO_DB_NAME: ${param:dbName}
+    SALT: ${param:salt}
 
 functions:
   sendResponse:
