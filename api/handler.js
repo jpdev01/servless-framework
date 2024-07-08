@@ -3,10 +3,16 @@
 const {MongoClient, ObjectId} = require("mongodb");
 const { pbkdf2Sync } = require('crypto');
 
+let connectionInstance = null;
+
 async function connectToDatabase() {
+    if (connectionInstance) return connectionInstance;
+
     const client = new MongoClient(process.env.DB_CONNECTION_STRING);
     const connection = await client.connect();
-    return connection.db(process.env.MONGO_DB_NAME);
+    connectionInstance = connection.db(process.env.MONGO_DB_NAME);
+
+    return connectionInstance;
 }
 
 async function basicAuth(event) {
